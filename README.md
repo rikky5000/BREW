@@ -5,6 +5,7 @@ Bryggprogram anpassat för **BrewZilla 65L Gen 4.1**. Byggt mobilen först, som 
 ## Funktioner (version 1)
 - **Startsida** med moduler
 - **Vattenkalkylator** – mäsk- och lakvatten, volym före/efter kok, insläppstemperatur, varningar om maltröret eller kärlet blir för fullt
+- **Vattenkemi** – råvatten (Katrineholm förinlagt), målprofiler per ölstil, salttillsatser (CaCl₂ 33 %, gips, Epsomsalt, NaCl) för mäsk- och lakvatten, uppskattat mäsk-pH och mjölksyra 80 %
 - **Utrustningsprofil** – standardvärden för BrewZilla 65L Gen 4.1 som du justerar efter egna mätningar
 
 ## Planerat

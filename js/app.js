@@ -1,13 +1,16 @@
 import { icons } from './icons.js';
 import { getEquipment, saveEquipment, BREWZILLA_65_DEFAULTS, EQUIPMENT_FIELDS } from './equipment.js';
-import { calcWater, fmt } from './water.js';
+import { calcWater, fmt, WATER_KEY, waterDefaults } from './water.js';
 import { load, save } from './storage.js';
+import { fieldHtml, esc, toast } from './ui.js';
+import { renderChemistry } from './chemistry-view.js';
 
 const view = document.getElementById('view');
 
 // ---------- Startsida ----------
 const MODULES = [
   { title: 'Vatten', desc: 'Mäsk- & lakvatten för BrewZilla', icon: 'drop', href: '#/vatten' },
+  { title: 'Vattenkemi', desc: 'Salter, pH & mjölksyra', icon: 'flask', href: '#/vattenkemi' },
   { title: 'Utrustning', desc: 'Profil för 65L Gen 4.1', icon: 'kettle', href: '#/utrustning' },
   { title: 'Recept', desc: 'OG, FG, ABV, IBU, EBC', icon: 'book', soon: true },
   { title: 'Bryggdag', desc: 'Checklista, timer & logg', icon: 'timer', soon: true },
@@ -58,13 +61,10 @@ function renderHome() {
 }
 
 // ---------- Vattenkalkylator ----------
-const WATER_KEY = 'water-input';
 
 function renderWater() {
   const eq = getEquipment();
-  const input = load(WATER_KEY, {
-    grainKg: 11, batchL: 45, boilMin: 60, mashRatio: eq.mashRatio, mashTemp: 66, grainTemp: 18,
-  });
+  const input = load(WATER_KEY, waterDefaults(eq));
 
   const fields = [
     { key: 'batchL', label: 'Volym i jäskärl', unit: 'L', step: 1 },
@@ -153,47 +153,11 @@ function renderEquipment() {
   });
 }
 
-// ---------- Hjälpfunktioner ----------
-function fieldHtml(f, value) {
-  const id = `f-${f.key}`;
-  let control;
-  if (f.type === 'text') {
-    control = `<input id="${id}" name="${f.key}" type="text" value="${esc(value)}">`;
-  } else if (f.options) {
-    control = `<select id="${id}" name="${f.key}">${f.options
-      .map((o) => `<option value="${o}"${Number(value) === o ? ' selected' : ''}>${o}</option>`).join('')}</select>`;
-  } else {
-    control = `<input id="${id}" name="${f.key}" type="number" inputmode="decimal" step="${f.step ?? 'any'}" value="${esc(value)}">`;
-  }
-  return `
-    <div class="field${f.type === 'text' ? ' text' : ''}">
-      <label for="${id}">${f.label}${f.hint ? `<small>${f.hint}</small>` : ''}</label>
-      <div class="input-wrap">${control}${f.unit ? `<span class="unit">${f.unit}</span>` : ''}</div>
-    </div>`;
-}
-
-function esc(s) {
-  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
-let toastTimer;
-function toast(msg) {
-  let el = document.querySelector('.toast');
-  if (!el) {
-    el = document.createElement('div');
-    el.className = 'toast';
-    document.body.appendChild(el);
-  }
-  el.textContent = msg;
-  el.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 1600);
-}
-
 // ---------- Router ----------
 const ROUTES = {
   '/': renderHome,
   '/vatten': renderWater,
+  '/vattenkemi': () => renderChemistry(view),
   '/utrustning': renderEquipment,
 };
 

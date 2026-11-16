@@ -8,6 +8,12 @@
 //   mäskvatten           = malt * mäsktjocklek (max totalt)
 //   lakvatten            = totalt - mäskvatten
 
+export const WATER_KEY = 'water-input';
+
+export function waterDefaults(eq) {
+  return { grainKg: 11, batchL: 45, boilMin: 60, mashRatio: eq.mashRatio, mashTemp: 66, grainTemp: 18 };
+}
+
 export function calcWater(input, eq) {
   const grain = num(input.grainKg);
   const batch = num(input.batchL);
