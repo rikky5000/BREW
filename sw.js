@@ -1,5 +1,5 @@
 // Service worker: gör appen tillgänglig offline. Höj CACHE vid ny version.
-const CACHE = 'waltherson-v9';
+const CACHE = 'waltherson-v10';
 const ASSETS = [
   './',
   'index.html',
@@ -16,6 +16,7 @@ const ASSETS = [
   'js/recipe-view.js',
   'js/importer.js',
   'js/import-view.js',
+  'js/tools-view.js',
   'manifest.webmanifest',
   'icons/icon.svg',
   'icons/icon-192.png',

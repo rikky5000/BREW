@@ -348,3 +348,7 @@ table.cmp th, table.cmp td { text-align: right; }
 .ing-row.misc { grid-template-columns: minmax(0, 1fr) 74px 74px 32px; }
 .ing-row.misc .use-in { grid-column: 1 / 4; }
 .ing-row.misc .mini input { padding-right: 8px; }
+
+.result .hint { display: block; color: var(--muted); font-size: 0.68rem; margin-top: 2px; }
+.field.text .input-wrap select { width: 100%; min-width: 0; text-overflow: ellipsis; }
+.field .input-wrap { min-width: 0; }

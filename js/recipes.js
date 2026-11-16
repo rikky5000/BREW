@@ -234,6 +234,23 @@ export function scaleRecipe(r, newBatchL, eq) {
   return r;
 }
 
+// Teoretiska gravitetspoäng (punkter × liter) vid 100 % utbyte, delat på malt och socker.
+export function extractPoints(r) {
+  let grainPts = 0; let sugarPts = 0;
+  for (const m of r.malts || []) {
+    const p = 385.6 * ((+m.yield || 0) / 100) * Math.max(+m.kg || 0, 0);
+    if (m.kind === 'sugar') sugarPts += p; else grainPts += p;
+  }
+  return { grainPts, sugarPts };
+}
+
+// Uppmätt verkningsgrad (%) från densitet och kall volym vid samma mätpunkt.
+export function measuredEfficiency(r, gravity, liters) {
+  const { grainPts, sugarPts } = extractPoints(r);
+  if (grainPts <= 0 || !(gravity > 1) || !(liters > 0)) return null;
+  return (((gravity - 1) * 1000 * liters - sugarPts) / grainPts) * 100;
+}
+
 // Verkningsgrad (%) som ger angiven OG med nuvarande volymer och malt.
 export function efficiencyForOg(r, eq, og) {
   const postBoilL = Math.max((+r.batchL || 0) + (eq.kettleLoss || 0), 0.1);
