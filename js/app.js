@@ -4,15 +4,17 @@ import { calcWater, fmt, WATER_KEY, waterDefaults } from './water.js';
 import { load, save } from './storage.js';
 import { fieldHtml, esc, toast } from './ui.js';
 import { renderChemistry } from './chemistry-view.js';
+import { renderRecipeList, renderRecipeEditor, getActiveRecipeId } from './recipe-view.js';
+import { getRecipe } from './recipes.js';
 
 const view = document.getElementById('view');
 
 // ---------- Startsida ----------
 const MODULES = [
+  { title: 'Recept', desc: 'OG, FG, ABV, IBU, EBC & BJCP', icon: 'book', href: '#/recept' },
   { title: 'Vatten', desc: 'Mäsk- & lakvatten för BrewZilla', icon: 'drop', href: '#/vatten' },
   { title: 'Vattenkemi', desc: 'Salter, pH & mjölksyra', icon: 'flask', href: '#/vattenkemi' },
   { title: 'Utrustning', desc: 'Profil för 65L Gen 4.1', icon: 'kettle', href: '#/utrustning' },
-  { title: 'Recept', desc: 'OG, FG, ABV, IBU, EBC', icon: 'book', soon: true },
   { title: 'Bryggdag', desc: 'Checklista, timer & logg', icon: 'timer', soon: true },
   { title: 'Mäskschema', desc: 'Upp till 6 steg för RAPT', icon: 'flame', soon: true },
   { title: 'Jäsning', desc: 'SG & temperatur i graf', icon: 'chart', soon: true },
@@ -37,6 +39,7 @@ function renderHome() {
       <p class="edition">${esc(eq.name)} Edition</p>
     </header>
 
+    ${activeHtml()}
     <h2 class="section-title">Moduler</h2>
     <div class="tiles">
       ${MODULES.map((m) => `
@@ -58,6 +61,17 @@ function renderHome() {
       </div>
     </div>
   `;
+}
+
+function activeHtml() {
+  const r = getRecipe(getActiveRecipeId());
+  if (!r) return '';
+  return `
+    <h2 class="section-title">Aktivt recept</h2>
+    <a class="card active-recipe" href="#/recept/${r.id}">
+      <strong>${esc(r.name)}</strong>
+      <small>${fmt(+r.batchL, 0)} L · ${fmt(+r.boilMin, 0)} min kok · ${esc(r.yeast?.name || '')}</small>
+    </a>`;
 }
 
 // ---------- Vattenkalkylator ----------
@@ -156,6 +170,7 @@ function renderEquipment() {
 // ---------- Router ----------
 const ROUTES = {
   '/': renderHome,
+  '/recept': () => renderRecipeList(view),
   '/vatten': renderWater,
   '/vattenkemi': () => renderChemistry(view),
   '/utrustning': renderEquipment,
@@ -163,9 +178,12 @@ const ROUTES = {
 
 function route() {
   const path = location.hash.replace(/^#/, '') || '/';
-  (ROUTES[path] || renderHome)();
+  const m = path.match(/^\/recept\/(.+)$/);
+  if (m) renderRecipeEditor(view, decodeURIComponent(m[1]));
+  else (ROUTES[path] || renderHome)();
+  const section = '/' + (path.split('/')[1] || '');
   document.querySelectorAll('.tabbar a').forEach((a) => {
-    a.classList.toggle('active', a.dataset.route === path);
+    a.classList.toggle('active', a.dataset.route === section);
   });
   window.scrollTo(0, 0);
 }

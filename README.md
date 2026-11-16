@@ -4,12 +4,13 @@ Bryggprogram anpassat för **BrewZilla 65L Gen 4.1**. Byggt mobilen först, som 
 
 ## Funktioner (version 1)
 - **Startsida** med moduler
+- **Recept** – malt, humle och jäst med OG, FG, ABV, IBU (Tinseth), färg (EBC) och BU:GU, jämfört med BJCP-stilens intervall. Ett recept kan överföras till Vatten & Kemi
 - **Vattenkalkylator** – mäsk- och lakvatten, volym före/efter kok, insläppstemperatur, varningar om maltröret eller kärlet blir för fullt
 - **Vattenkemi** – råvatten (Katrineholm förinlagt), målprofiler per ölstil, salttillsatser (CaCl₂ 33 %, gips, Epsomsalt, NaCl) för mäsk- och lakvatten, uppskattat mäsk-pH och mjölksyra 80 %
-- **Utrustningsprofil** – standardvärden för BrewZilla 65L Gen 4.1 som du justerar efter egna mätningar
+- **Utrustningsprofil** – steglös max elementeffekt 0–3500 W och standardvärden för BrewZilla 65L Gen 4.1 som du justerar efter egna mätningar
 
 ## Planerat
-Recept (OG/FG/ABV/IBU/EBC, BJCP), BeerXML-import, mäskschema för RAPT (6 steg), bryggdagsläge med checklista och timer, jäsningslogg med graf, batchhistorik, kolsyrekalkylator, lager, verktyg, RAPT-koppling.
+BeerXML-import, mäskschema för RAPT (6 steg), bryggdagsläge med checklista och timer, jäsningslogg med graf, batchhistorik, kolsyrekalkylator, lager, verktyg, RAPT-koppling.
 
 ## Köra lokalt
 Appen är ren HTML/CSS/JS utan byggsteg. Starta en webbserver i mappen:
