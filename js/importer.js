@@ -1,6 +1,6 @@
 // Inläsning av recept från fil.
 // Format: BeerXML (.xml), BeerJSON (.json), Brewfather JSON (.json) och Brewfather-PDF (.pdf).
-import { MALTS, YEASTS, STYLES } from './recipes.js';
+import { MALTS, HOPS, YEASTS, STYLES } from './recipes.js';
 
 export const ACCEPT = '.xml,.beerxml,.json,.pdf';
 
@@ -13,7 +13,11 @@ export async function importFile(file) {
   const text = await file.text();
   const trimmed = text.trim();
   if (trimmed.startsWith('{') || trimmed.startsWith('[')) return parseJson(JSON.parse(trimmed));
-  if (trimmed.startsWith('<')) return parseBeerXml(trimmed);
+  if (trimmed.startsWith('<')) {
+    if (/<RECIPE[\s>]/.test(trimmed)) return parseBeerXml(trimmed);
+    if (/<brewRecipe[\s>]/i.test(trimmed)) return parseBrewRecipeXml(trimmed);
+    throw new Error('XML-filen är varken BeerXML (<RECIPE>) eller ett känt receptformat.');
+  }
   throw new Error('Okänt filformat. Använd BeerXML (.xml), BeerJSON/Brewfather (.json) eller PDF.');
 }
 
@@ -84,6 +88,90 @@ export function parseBeerXml(text) {
 
 function child(el, tag) {
   return el ? [...el.children].find((c) => c.tagName.toUpperCase() === tag) : null;
+}
+
+// ---------- brewRecipe-XML (attributbaserat format) ----------
+export function parseBrewRecipeXml(text) {
+  const doc = new DOMParser().parseFromString(text, 'application/xml');
+  if (doc.querySelector('parsererror')) throw new Error('Kunde inte läsa XML-filen.');
+  const root = doc.documentElement;
+  const q = (sel) => root.querySelector(sel);
+  const txt = (sel) => q(sel)?.textContent.trim() ?? '';
+  const val = (sel) => num(txt(sel));
+  const attr = (el, a) => el?.getAttribute(a) ?? '';
+  const mid = (a, b) => (a && b ? (a + b) / 2 : a || b || null);
+
+  const malts = [...root.querySelectorAll('fermentables > fermentable')].map((f) => malt(
+    attr(f, 'name'),
+    num(attr(f, 'amountKg')) || num(attr(f, 'amountG')) / 1000,
+    num(attr(f, 'colorEBC') || attr(f, 'ebc')) || num(attr(f, 'colorSRM') || attr(f, 'colorL')) * 1.97,
+    num(attr(f, 'yield')) || null, null,
+  ));
+
+  const hops = [...root.querySelectorAll('hops > addition, hops > hop')].map((h) => {
+    const use = hopUse(attr(h, 'stage') || attr(h, 'use'));
+    const min = use === 'dryhop'
+      ? num(attr(h, 'contactDays') || attr(h, 'days') || attr(h, 'timeDays'))
+      : num(attr(h, 'timeMinutes') || attr(h, 'time'));
+    return { name: attr(h, 'name'), g: num(attr(h, 'amountG')) || num(attr(h, 'amountKg')) * 1000, alpha: num(attr(h, 'alpha') || attr(h, 'alphaAcid')), use, min };
+  });
+
+  const yeastName = txt('yeast > name') || attr(q('yeast'), 'name');
+  const steps = [...root.querySelectorAll('mash > step')];
+  const og = val('targets > originalGravity');
+  const fg = mid(val('targets > finalGravityMin'), val('targets > finalGravityMax')) || val('targets > finalGravity');
+
+  const tp = q('water targetProfile');
+  const waterTarget = tp ? {
+    ca: num(tp.querySelector('calcium')?.textContent), mg: num(tp.querySelector('magnesium')?.textContent),
+    na: num(tp.querySelector('sodium')?.textContent), so4: num(tp.querySelector('sulfate')?.textContent),
+    cl: num(tp.querySelector('chloride')?.textContent),
+  } : null;
+  const phRange = txt('water acidification targetMashPH').match(/([\d.]+)\s*-\s*([\d.]+)/);
+  const mashPh = phRange ? (num(phRange[1]) + num(phRange[2])) / 2 : null;
+
+  // Samla processinformation som saknar eget fält i appen.
+  const notes = [];
+  const profile = txt('metadata > profile');
+  if (profile) notes.push(profile);
+  if (steps.length) {
+    notes.push(`Mäskschema:\n${steps.map((st) => `- ${attr(st, 'name')}: ${attr(st, 'temperatureC')} °C, ${attr(st, 'durationMinutes')} min`).join('\n')}`);
+  }
+  const ferm = [...root.querySelectorAll('fermentation > step')];
+  if (ferm.length) {
+    notes.push(`Jäsning:\n${ferm.map((st) => `- ${attr(st, 'name')}: ${attr(st, 'temperatureC')} °C, ${attr(st, 'durationDays') ? `${attr(st, 'durationDays')} dagar` : `${attr(st, 'durationWeeks')} veckor`}`).join('\n')}`);
+  }
+  const salts = [...root.querySelectorAll('saltAdditions > addition')];
+  if (salts.length) {
+    notes.push(`Salter enligt filen:\n${salts.map((a) => `- ${attr(a, 'compound')}: ${attr(a, 'totalAmountG')} g`).join('\n')}\n(Kemi-sidan räknar om för dina salter.)`);
+  }
+  const power = q('mash powerSettings');
+  if (power) notes.push(`Effekt:\n${[...power.children].map((c) => `- ${c.tagName}: ${c.textContent.trim()}`).join('\n')}`);
+  const carb = val('targets > carbonation') || val('packaging > carbonationVolumes');
+  if (carb) notes.push(`Kolsyra: ${carb} vol CO₂`);
+  root.querySelectorAll('processNotes > note').forEach((n) => notes.push(n.textContent.trim()));
+
+  const ibuMin = val('targets > bitternessMin'); const ibuMax = val('targets > bitternessMax');
+  const ebcMin = val('targets > colorMin'); const ebcMax = val('targets > colorMax');
+
+  return [draft({
+    format: 'brewRecipe XML',
+    name: txt('metadata > name'),
+    styleId: findStyle(txt('metadata > style')),
+    styleName: txt('metadata > style'),
+    batchL: val('metadata > batchVolume') || val('water volumes intoFermenter'),
+    boilMin: num(attr(q('boil'), 'durationMinutes')) || 60,
+    efficiency: val('targets > brewHouseEfficiency') || val('targets > mashEfficiency'),
+    mashTemp: steps.length ? num(attr(steps[0], 'temperatureC')) : null,
+    malts, hops,
+    yeast: yeastName ? yeastOf(yeastName, null, yeastName) : null,
+    miscs: [],
+    notes: notes.join('\n\n'),
+    og, fg,
+    ibu: mid(ibuMin, ibuMax),
+    ebc: mid(ebcMin, ebcMax),
+    waterTarget, mashPh,
+  })];
 }
 
 // ---------- JSON (BeerJSON eller Brewfather) ----------
@@ -277,6 +365,9 @@ function draft(d) {
     d.yeast.attenuation = Math.round(((d.og - d.fg) / (d.og - 1)) * 1000) / 10;
   }
   if (d.yeast) delete d.yeast.fromFile;
+  for (const h of d.hops || []) {
+    if (!h.alpha) h.alpha = HOPS.find((x) => norm(x.name) === norm(h.name))?.alpha || 0;
+  }
   return {
     name: d.name || 'Importerat recept',
     styleId: d.styleId || '',
@@ -289,6 +380,8 @@ function draft(d) {
     yeast: d.yeast || { name: '', attenuation: 75 },
     miscs: d.miscs || [],
     notes: d.notes || '',
+    ...(d.waterTarget ? { waterTarget: d.waterTarget } : {}),
+    ...(d.mashPh ? { mashPh: d.mashPh } : {}),
     source: {
       format: d.format, styleName: d.styleName || '',
       og: d.og || null, fg: d.fg || null, ibu: d.ibu ?? null, ebc: d.ebc ?? null,
@@ -298,7 +391,7 @@ function draft(d) {
 
 function malt(name, kg, ebc, yieldPct, kindHint) {
   const clean = String(name || '').trim();
-  const db = MALTS.find((m) => norm(m.name) === norm(clean));
+  const db = findMaltDb(clean);
   const kind = kindHint || db?.kind || guessMaltKind(clean, ebc);
   return {
     name: clean,
@@ -307,6 +400,36 @@ function malt(name, kg, ebc, yieldPct, kindHint) {
     yield: yieldPct || db?.yield || (kind === 'sugar' ? 100 : 78),
     kind,
   };
+}
+
+// Hittar malt i databasen via exakt namn eller vanliga nyckelord (sv/en).
+const MALT_KEYWORDS = [
+  [/carapils|carafoam|dextrin/, 'Carapils / Carafoam'],
+  [/carahell/, 'Carahell'],
+  [/caramunich|caramünch/, 'Caramünch I'],
+  [/caraaroma/, 'Caraaroma'],
+  [/carafa/, 'Carafa Special II'],
+  [/chocolate|choklad/, 'Chokladmalt'],
+  [/roasted barley|rostat korn/, 'Rostat korn'],
+  [/acid|surmalt|sauer/, 'Surmalt'],
+  [/maris/, 'Maris Otter'],
+  [/pils|pilsner/, 'Pilsnermalt'],
+  [/pale ?ale|pale malt|2-?row/, 'Pale Ale-malt'],
+  [/vienna|wien/, 'Wienermalt'],
+  [/munich ?(ii|2)|münchen ?(ii|2)|munchen ?(ii|2)/, 'Münchenmalt II'],
+  [/munich|münch|munch/, 'Münchenmalt I'],
+  [/melanoid/, 'Melanoidinmalt'],
+  [/oat|havre/, 'Havreflingor'],
+  [/wheat|vete|weizen/, 'Vetemalt ljus'],
+  [/dextros|dextrose|druvsocker/, 'Druvsocker (dextros)'],
+  [/sucros|socker|table sugar/, 'Socker (sukros)'],
+];
+function findMaltDb(name) {
+  const exact = MALTS.find((m) => norm(m.name) === norm(name));
+  if (exact) return exact;
+  const n = name.toLowerCase();
+  const hit = MALT_KEYWORDS.find(([re]) => re.test(n));
+  return hit ? MALTS.find((m) => m.name === hit[1]) : null;
 }
 
 function guessMaltKind(name, ebc) {

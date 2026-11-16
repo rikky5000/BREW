@@ -330,8 +330,13 @@ function applyRecipe(recipe, eq) {
   });
 
   const style = STYLES.find((s) => s.id === recipe.styleId);
-  const profile = TARGET_PROFILES.find((p) => p.id === style?.water);
   const chem = load('chemistry', {});
+  let profile = TARGET_PROFILES.find((p) => p.id === style?.water);
+  // Receptets egen vattenprofil (t.ex. från import) går före stilens.
+  if (recipe.waterTarget) {
+    profile = { id: `recipe-${recipe.id}`, name: `${recipe.name} (recept)`, ...recipe.waterTarget, mashPh: recipe.mashPh || 5.3 };
+    chem.customProfiles = [...(chem.customProfiles || []).filter((p) => p.id !== profile.id), profile];
+  }
   const next = {
     ...chem,
     malts: recipe.malts
