@@ -1,0 +1,23 @@
+# Waltherson Brewing – Brewing Management System
+
+Bryggprogram anpassat för **BrewZilla 65L Gen 4.1**. Byggt mobilen först, som en installerbar webbapp (PWA) som fungerar offline. All data sparas lokalt i telefonen.
+
+## Funktioner (version 1)
+- **Startsida** med moduler
+- **Vattenkalkylator** – mäsk- och lakvatten, volym före/efter kok, insläppstemperatur, varningar om maltröret eller kärlet blir för fullt
+- **Utrustningsprofil** – standardvärden för BrewZilla 65L Gen 4.1 som du justerar efter egna mätningar
+
+## Planerat
+Recept (OG/FG/ABV/IBU/EBC, BJCP), BeerXML-import, mäskschema för RAPT (6 steg), bryggdagsläge med checklista och timer, jäsningslogg med graf, batchhistorik, kolsyrekalkylator, lager, verktyg, RAPT-koppling.
+
+## Köra lokalt
+Appen är ren HTML/CSS/JS utan byggsteg. Starta en webbserver i mappen:
+
+```bash
+python -m http.server 8000
+```
+
+Öppna sedan http://localhost:8000.
+
+## Installera på mobilen
+Publicera med GitHub Pages (Settings → Pages → Deploy from branch). Öppna sidan i mobilen och välj **Lägg till på hemskärmen**.
