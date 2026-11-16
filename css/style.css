@@ -235,7 +235,7 @@ details summary small { display: block; color: var(--muted); font-size: 0.75rem;
   background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px;
 }
 .mini { position: relative; display: block; }
-.mini input { padding-right: 30px; text-align: right; }
+.mini input { padding: 8px 30px 8px 6px; text-align: right; }
 .mini span { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 0.68rem; pointer-events: none; }
 .icon-btn { width: 32px; height: 36px; border: 0; background: none; color: var(--muted); font-size: 1.4rem; cursor: pointer; }
 
@@ -311,9 +311,9 @@ input[type=range]:focus-visible { outline: 2px solid var(--gold-dim); outline-of
 
 .ing-row { display: grid; gap: 6px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .ing-row:last-child { border-bottom: 0; }
-.ing-row.malt { grid-template-columns: minmax(0, 1fr) 74px 74px 32px; }
+.ing-row.malt { grid-template-columns: minmax(0, 1fr) 86px 80px 32px; }
 .ing-row.malt .pct { grid-column: 1; grid-row: 2; color: var(--muted); font-size: 0.72rem; }
-.ing-row.hop { grid-template-columns: minmax(0, 1fr) 74px 74px 32px; }
+.ing-row.hop { grid-template-columns: minmax(0, 1fr) 86px 80px 32px; }
 .ing-row.hop select { grid-column: 1 / 2; }
 .ing-row.hop select + .mini { grid-column: 2; }
 .ing-row.hop select + .mini + .mini { grid-column: 3; }
@@ -345,10 +345,20 @@ textarea {
 .kv small, .dose small { color: var(--muted); font-weight: 400; font-size: 0.72rem; }
 table.cmp th, table.cmp td { text-align: right; }
 .saved-txt { color: var(--ok); font-weight: 600; align-self: center; }
-.ing-row.misc { grid-template-columns: minmax(0, 1fr) 74px 74px 32px; }
+.ing-row.misc { grid-template-columns: minmax(0, 1fr) 86px 80px 32px; }
 .ing-row.misc .use-in { grid-column: 1 / 4; }
 .ing-row.misc .mini input { padding-right: 8px; }
 
 .result .hint { display: block; color: var(--muted); font-size: 0.68rem; margin-top: 2px; }
 .field.text .input-wrap select { width: 100%; min-width: 0; text-overflow: ellipsis; }
 .field .input-wrap { min-width: 0; }
+
+.ing-total { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 10px 0 2px; border-top: 1px solid var(--line); margin-top: 2px; }
+.ing-total span { color: var(--muted); font-size: 0.8rem; letter-spacing: 0.05em; text-transform: uppercase; }
+.ing-total b { color: var(--gold); font-weight: 600; font-size: 1.05rem; }
+.ing-total small { flex-basis: 100%; color: var(--muted); font-size: 0.75rem; }
+.ing-total:empty { display: none; }
+/* Dölj upp/ner-pilar i små sifferfält – de tar plats från siffrorna på datorn. */
+.mini input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+.mini input[type=number]::-webkit-inner-spin-button,
+.mini input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }

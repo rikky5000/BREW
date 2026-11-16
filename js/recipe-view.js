@@ -95,11 +95,13 @@ export function renderRecipeEditor(view, id) {
 
     <h2 class="section-title">Malt</h2>
     <div class="card"><div id="r-malts"></div>
+      <div class="ing-total" id="r-malt-total"></div>
       <div class="btn-row"><button class="btn" type="button" id="r-add-malt">+ Lägg till malt</button></div>
     </div>
 
     <h2 class="section-title">Humle</h2>
     <div class="card"><div id="r-hops"></div>
+      <div class="ing-total" id="r-hop-total"></div>
       <div class="btn-row"><button class="btn" type="button" id="r-add-hop">+ Lägg till humle</button></div>
     </div>
 
@@ -238,6 +240,15 @@ export function renderRecipeEditor(view, id) {
         <span class="pct">${total > 0 ? fmt((m.kg / total) * 100, 0) : 0} %</span>
         <button type="button" class="icon-btn" data-remove aria-label="Ta bort">×</button>
       </div>`).join('') || '<p class="note">Ingen malt.</p>';
+    renderMaltTotal();
+  }
+  function renderMaltTotal() {
+    const sum = (f) => recipe.malts.filter(f).reduce((s, m) => s + (+m.kg || 0), 0);
+    const total = sum(() => true);
+    const sugar = sum((m) => m.kind === 'sugar');
+    view.querySelector('#r-malt-total').innerHTML = recipe.malts.length
+      ? `<span>Totalt</span><b>${fmt(total, 2)} kg</b>${sugar > 0 ? `<small>varav malt ${fmt(total - sugar, 2)} kg · socker ${fmt(sugar, 2)} kg</small>` : ''}`
+      : '';
   }
   maltsEl.addEventListener('input', (e) => {
     const row = e.target.closest('.ing-row'); const k = e.target.dataset.k;
@@ -261,6 +272,7 @@ export function renderRecipeEditor(view, id) {
     if (k === 'kg') updatePercents();
   });
   function updatePercents() {
+    renderMaltTotal();
     const total = recipe.malts.reduce((s, m) => s + (+m.kg || 0), 0);
     maltsEl.querySelectorAll('.ing-row').forEach((row) => {
       const m = recipe.malts[+row.dataset.i];
@@ -291,6 +303,14 @@ export function renderRecipeEditor(view, id) {
         <label class="mini"><input data-k="min" type="number" inputmode="numeric" step="1" min="0" value="${h.min}"><span>${h.use === 'dryhop' ? 'dag' : 'min'}</span></label>
         ${h.use === 'whirlpool' ? `<label class="mini"><input data-k="temp" type="number" inputmode="numeric" step="1" min="0" max="100" value="${h.temp ?? 80}"><span>°C</span></label>` : ''}
       </div>`).join('') || '<p class="note">Ingen humle.</p>';
+    renderHopTotal();
+  }
+  function renderHopTotal() {
+    const total = recipe.hops.reduce((t, h) => t + (+h.g || 0), 0);
+    const dry = recipe.hops.filter((h) => h.use === 'dryhop').reduce((t, h) => t + (+h.g || 0), 0);
+    view.querySelector('#r-hop-total').innerHTML = recipe.hops.length
+      ? `<span>Totalt</span><b>${fmt(total, 1)} g</b>${dry > 0 ? `<small>varav torrhumling ${fmt(dry, 1)} g</small>` : ''}`
+      : '';
   }
   hopsEl.addEventListener('input', (e) => {
     const row = e.target.closest('.ing-row'); const k = e.target.dataset.k;
@@ -308,7 +328,7 @@ export function renderRecipeEditor(view, id) {
     } else {
       h[k] = numVal(e.target.value);
     }
-    persist(); renderStats();
+    persist(); renderStats(); renderHopTotal();
   });
   hopsEl.addEventListener('click', (e) => {
     if (!e.target.matches('[data-remove]')) return;
