@@ -140,6 +140,7 @@ export function newRecipe(eq) {
       { name: 'Cascade', g: 60, alpha: 6.5, use: 'boil', min: 10 },
     ],
     yeast: { name: 'SafAle US-05', attenuation: 78 },
+    miscs: [],
     notes: '',
   };
 }
@@ -162,7 +163,7 @@ export function calcRecipe(r, eq) {
       grainKg += kg;
       points += ppkgL * kg * eff;
     }
-    const lovibond = ((+m.ebc || 0) / 1.97 + 0.76) / 1.3546;
+    const lovibond = (+m.ebc || 0) / 1.97; // samma omräkning som Brewfather/BeerXML
     mcu += (kg * 2.20462 * lovibond) / (postBoilL / 3.78541);
   }
   const og = 1 + points / postBoilL / 1000;
@@ -185,6 +186,19 @@ export function calcRecipe(r, eq) {
 
   const buGu = og > 1 ? ibu / ((og - 1) * 1000) : 0;
   return { og, fg, abv, ibu, ebc, grainKg, totalKg, buGu, postBoilL };
+}
+
+// Verkningsgrad (%) som ger angiven OG med nuvarande volymer och malt.
+export function efficiencyForOg(r, eq, og) {
+  const postBoilL = Math.max((+r.batchL || 0) + (eq.kettleLoss || 0), 0.1);
+  let grainPts = 0; let sugarPts = 0;
+  for (const m of r.malts) {
+    const p = 385.6 * ((+m.yield || 0) / 100) * Math.max(+m.kg || 0, 0);
+    if (m.kind === 'sugar') sugarPts += p; else grainPts += p;
+  }
+  if (grainPts <= 0 || !og) return null;
+  const eff = (((og - 1) * 1000 * postBoilL - sugarPts) / grainPts) * 100;
+  return eff > 20 && eff < 100 ? Math.round(eff * 10) / 10 : null;
 }
 
 // Ungefärlig ölfärg (sRGB) från EBC, via vedertagen SRM-färgtabell (1–40).

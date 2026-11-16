@@ -325,3 +325,25 @@ textarea {
   background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px;
 }
 .tabbar a span { font-size: 0.66rem; }
+
+/* ---------- Import ---------- */
+.btn-row.split { margin: 0 0 14px; }
+.btn-row.split .btn { flex: 1; text-decoration: none; }
+.drop { text-align: center; border-style: dashed; }
+.drop.over { border-color: var(--gold); }
+.drop > svg { width: 34px; height: 34px; color: var(--gold); }
+.drop label.btn { margin: 6px 0 4px; }
+.import-card.saved { opacity: 0.75; }
+.ic-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+.ic-head strong { display: block; color: var(--gold); font-weight: 600; }
+.ic-head small { color: var(--muted); font-size: 0.75rem; word-break: break-all; }
+.kv { list-style: none; margin: 0 0 6px; padding: 0; }
+.kv li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 0.88rem; }
+.kv span { color: var(--muted); }
+.kv b { font-weight: 600; text-align: right; }
+.kv small, .dose small { color: var(--muted); font-weight: 400; font-size: 0.72rem; }
+table.cmp th, table.cmp td { text-align: right; }
+.saved-txt { color: var(--ok); font-weight: 600; align-self: center; }
+.ing-row.misc { grid-template-columns: minmax(0, 1fr) 74px 74px 32px; }
+.ing-row.misc .use-in { grid-column: 1 / 4; }
+.ing-row.misc .mini input { padding-right: 8px; }

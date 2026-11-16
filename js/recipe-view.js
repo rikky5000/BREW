@@ -25,7 +25,10 @@ export function renderRecipeList(view) {
 
   view.innerHTML = `
     <div class="page-head">${icons.book}<div><h1>Recept</h1><p>${list.length} sparade</p></div></div>
-    <button class="btn primary block" id="r-new" type="button">+ Nytt recept</button>
+    <div class="btn-row split">
+      <button class="btn primary" id="r-new" type="button">+ Nytt recept</button>
+      <a class="btn" href="#/import">Importera</a>
+    </div>
     <div class="recipe-list">
       ${list.length ? list.map((r) => {
         const c = calcRecipe(r, eq);
@@ -57,6 +60,7 @@ export function renderRecipeEditor(view, id) {
   const eq = getEquipment();
   const recipe = getRecipe(id);
   if (!recipe) { location.hash = '#/recept'; return; }
+  recipe.miscs ||= [];
 
   view.innerHTML = `
     <div class="page-head">
@@ -93,6 +97,11 @@ export function renderRecipeEditor(view, id) {
     <div class="card" id="r-yeast">
       <div class="field text"><label for="r-yeast-name">Jäst</label><div class="input-wrap"><input id="r-yeast-name" data-y="name" list="dl-yeasts" type="text" value="${esc(recipe.yeast.name)}"></div></div>
       ${num('attenuation', 'Förjäsningsgrad', recipe.yeast.attenuation, '%', 1, 'data-y')}
+    </div>
+
+    <h2 class="section-title">Övrigt</h2>
+    <div class="card"><div id="r-miscs"></div>
+      <div class="btn-row"><button class="btn" type="button" id="r-add-misc">+ Lägg till</button></div>
     </div>
 
     <h2 class="section-title">Anteckningar</h2>
@@ -243,6 +252,35 @@ export function renderRecipeEditor(view, id) {
     hopsEl.querySelector('.ing-row:last-child .ing-name')?.focus();
   });
 
+  // ---------- Övrigt ----------
+  const miscsEl = view.querySelector('#r-miscs');
+  function renderMiscs() {
+    miscsEl.innerHTML = recipe.miscs.map((m, i) => `
+      <div class="ing-row misc" data-i="${i}">
+        <input class="ing-name" data-k="name" type="text" value="${esc(m.name)}" placeholder="T.ex. Mjölksyra 80 %" aria-label="Namn">
+        <label class="mini"><input data-k="amount" type="number" inputmode="decimal" step="any" min="0" value="${m.amount}"><span></span></label>
+        <input class="ing-name unit-in" data-k="unit" type="text" value="${esc(m.unit)}" placeholder="ml" aria-label="Enhet">
+        <button type="button" class="icon-btn" data-remove aria-label="Ta bort">×</button>
+        <input class="ing-name use-in" data-k="use" type="text" value="${esc(m.use)}" placeholder="När: mäskning, kok, fatning …" aria-label="När">
+      </div>`).join('') || '<p class="note">Inget – t.ex. syra, salter, aromer, Irish moss.</p>';
+  }
+  miscsEl.addEventListener('input', (e) => {
+    const row = e.target.closest('.ing-row'); const k = e.target.dataset.k;
+    if (!row || !k) return;
+    recipe.miscs[+row.dataset.i][k] = k === 'amount' ? numVal(e.target.value) : e.target.value;
+    persist();
+  });
+  miscsEl.addEventListener('click', (e) => {
+    if (!e.target.matches('[data-remove]')) return;
+    recipe.miscs.splice(+e.target.closest('.ing-row').dataset.i, 1);
+    persist(); renderMiscs();
+  });
+  view.querySelector('#r-add-misc').addEventListener('click', () => {
+    recipe.miscs.push({ name: '', amount: 0, unit: 'g', use: '' });
+    persist(); renderMiscs();
+    miscsEl.querySelector('.ing-row:last-child .ing-name')?.focus();
+  });
+
   // ---------- Jäst & anteckningar ----------
   view.querySelector('#r-yeast').addEventListener('input', (e) => {
     const k = e.target.dataset.y;
@@ -276,7 +314,7 @@ export function renderRecipeEditor(view, id) {
     location.hash = '#/recept';
   });
 
-  renderMalts(); renderHops(); renderStats();
+  renderMalts(); renderHops(); renderMiscs(); renderStats();
 }
 
 // Överför volymer och malt till vattenkalkylatorn och vattenkemin.

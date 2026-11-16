@@ -6,6 +6,7 @@ import { fieldHtml, esc, toast } from './ui.js';
 import { renderChemistry } from './chemistry-view.js';
 import { renderRecipeList, renderRecipeEditor, getActiveRecipeId } from './recipe-view.js';
 import { getRecipe } from './recipes.js';
+import { renderImport } from './import-view.js';
 
 const view = document.getElementById('view');
 
@@ -22,7 +23,7 @@ const MODULES = [
   { title: 'Kolsyra', desc: 'Socker eller keg-tryck', icon: 'bubbles', soon: true },
   { title: 'Lager', desc: 'Malt, humle & jäst', icon: 'box', soon: true },
   { title: 'Verktyg', desc: 'ABV, refraktometer, spädning', icon: 'calc', soon: true },
-  { title: 'Import', desc: 'BeerXML-recept', icon: 'upload', soon: true },
+  { title: 'Import', desc: 'BeerXML, JSON & PDF', icon: 'upload', href: '#/import' },
   { title: 'RAPT', desc: 'Livedata från molnet', icon: 'wifi', soon: true },
 ];
 
@@ -171,6 +172,7 @@ function renderEquipment() {
 const ROUTES = {
   '/': renderHome,
   '/recept': () => renderRecipeList(view),
+  '/import': () => renderImport(view),
   '/vatten': renderWater,
   '/vattenkemi': () => renderChemistry(view),
   '/utrustning': renderEquipment,
@@ -181,7 +183,7 @@ function route() {
   const m = path.match(/^\/recept\/(.+)$/);
   if (m) renderRecipeEditor(view, decodeURIComponent(m[1]));
   else (ROUTES[path] || renderHome)();
-  const section = '/' + (path.split('/')[1] || '');
+  const section = path === '/import' ? '/recept' : '/' + (path.split('/')[1] || '');
   document.querySelectorAll('.tabbar a').forEach((a) => {
     a.classList.toggle('active', a.dataset.route === section);
   });
