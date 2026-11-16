@@ -11,11 +11,11 @@ export const ION_LABELS = {
   so4: 'Sulfat (SO₄)', cl: 'Klorid (Cl)', hco3: 'Vätekarbonat (HCO₃)',
 };
 
-// Katrineholms vattenverk – sammanställt från offentliga källor, ungefärligt.
-// Natrium saknas i källorna och är uppskattat.
+// Katrineholms vattenverk – Eurofins analysrapport AR-25-QI-078024-01,
+// provtagen 2025-06-10 hos användare (Sörmland Vatten).
 export const KATRINEHOLM = {
-  name: 'Katrineholm (kranvatten)',
-  ca: 28, mg: 4.5, na: 10, so4: 14, cl: 8, hco3: 108, ph: 8.0,
+  name: 'Katrineholm (analys 2025-06)',
+  ca: 31, mg: 4.5, na: 12, so4: 15, cl: 9.3, hco3: 99, ph: 7.9,
 };
 
 // Målprofiler (mg/l) och föreslaget mäsk-pH per ölstil.

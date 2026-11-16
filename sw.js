@@ -1,5 +1,5 @@
 // Service worker: gör appen tillgänglig offline. Höj CACHE vid ny version.
-const CACHE = 'waltherson-v2';
+const CACHE = 'waltherson-v3';
 const ASSETS = [
   './',
   'index.html',

@@ -78,8 +78,8 @@ export function renderChemistry(view) {
           ${SOURCE_IONS.map((i) => ionField('s', i, state.source[i])).join('')}
           ${numField('s-ph', 'pH', state.source.ph, '', 0.1)}
         </div>
-        <p class="note">Katrineholms värden är sammanställda från offentliga källor och ungefärliga. Natrium är uppskattat.
-          Be kommunen om senaste analysen för exakta värden.</p>
+        <p class="note">Katrineholm: Sörmland Vatten, analys från Eurofins provtagen 2025-06-10
+          (hårdhet 5,4 °dH). Ändra värdena om du får en nyare analys.</p>
         <div class="btn-row"><button class="btn" type="button" id="c-reset-source">Återställ Katrineholm</button></div>
       </details>
     </div>
