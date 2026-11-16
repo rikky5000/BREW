@@ -6,14 +6,14 @@ import { esc, toast } from './ui.js';
 import {
   KATRINEHOLM, TARGET_PROFILES, SALTS, MALT_TYPES, ION_LABELS,
   suggestSaltDose, ionsFromSalts, addProfiles, residualAlkalinity,
-  mashPh, lacticForMashPh, lacticForSparge,
+  mashPh, lacticForMashPh, lacticForSparge, planChemistry,
 } from './chemistry.js';
 
 const KEY = 'chemistry';
 const TARGET_IONS = ['ca', 'mg', 'na', 'so4', 'cl'];
 const SOURCE_IONS = ['ca', 'mg', 'na', 'so4', 'cl', 'hco3'];
 
-function defaults(grainKg) {
+export function chemistryDefaults(grainKg) {
   const t = TARGET_PROFILES[0];
   return {
     source: { ...KATRINEHOLM },
@@ -42,7 +42,7 @@ export function renderChemistry(view) {
   const eq = getEquipment();
   const waterInput = load(WATER_KEY, waterDefaults(eq));
   const water = calcWater(waterInput, eq);
-  const state = load(KEY, defaults(parseFloat(waterInput.grainKg) || 0));
+  const state = load(KEY, chemistryDefaults(parseFloat(waterInput.grainKg) || 0));
 
   view.innerHTML = `
     <div class="page-head">${icons.flask}<div><h1>Vattenkemi</h1><p>Salter, mäsk-pH och mjölksyra</p></div></div>
@@ -233,32 +233,14 @@ export function renderChemistry(view) {
     const spargeL = water.sparge;
     const totalL = mashL + spargeL;
 
+    const plan = planChemistry(state, mashL, spargeL, recalcSalts);
     if (state.auto && recalcSalts) {
-      const dose = suggestSaltDose(state.source, state.target);
       for (const s of SALTS) {
-        state.salts[s.id] = dose[s.id] * totalL;
         const inp = view.querySelector(`#c-salt-${s.id}`);
         if (inp) inp.value = round1(state.salts[s.id]);
       }
     }
-
-    const mashShare = state.spargeSalts && totalL > 0 ? mashL / totalL : 1;
-    const mashSalts = {}; const spargeSalts = {};
-    for (const s of SALTS) {
-      mashSalts[s.id] = state.salts[s.id] * mashShare;
-      spargeSalts[s.id] = state.salts[s.id] - mashSalts[s.id];
-    }
-
-    const mashWater = addProfiles(state.source, ionsFromSalts(mashSalts, mashL));
-    const kettle = addProfiles(state.source, ionsFromSalts(state.salts, totalL));
-
-    const malts = state.malts.filter((m) => m.kg > 0);
-    const phNoAcid = mashPh({ malts, mashL, water: mashWater });
-    const mashAcid = lacticForMashPh({ malts, mashL, water: mashWater, targetPh: state.mashPhTarget });
-    const phWithAcid = mashPh({ malts, mashL, water: mashWater, lacticMl: mashAcid });
-    const spargeAcid = state.spargeAcid
-      ? lacticForSparge({ water: state.source, spargeL, targetPh: state.spargePhTarget })
-      : 0;
+    const { mashSalts, spargeSalts, mashWater, kettle, phNoAcid, mashAcid, phWithAcid, spargeAcid } = plan;
 
     // ---------- Att tillsätta ----------
     const doseList = (salts, acid) => {

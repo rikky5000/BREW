@@ -407,7 +407,7 @@ export function renderRecipeEditor(view, id) {
 }
 
 // Överför volymer och malt till vattenkalkylatorn och vattenkemin.
-function applyRecipe(recipe, eq) {
+export function applyRecipe(recipe, eq) {
   const c = calcRecipe(recipe, eq);
   const water = load(WATER_KEY, waterDefaults(eq));
   save(WATER_KEY, {

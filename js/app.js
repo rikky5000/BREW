@@ -8,6 +8,7 @@ import { renderRecipeList, renderRecipeEditor, getActiveRecipeId } from './recip
 import { getRecipe } from './recipes.js';
 import { renderImport } from './import-view.js';
 import { renderTools } from './tools-view.js';
+import { renderBrewday, sessionSummary } from './brewday-view.js';
 
 const view = document.getElementById('view');
 
@@ -17,7 +18,7 @@ const MODULES = [
   { title: 'Vatten', desc: 'Mäsk- & lakvatten för BrewZilla', icon: 'drop', href: '#/vatten' },
   { title: 'Vattenkemi', desc: 'Salter, pH & mjölksyra', icon: 'flask', href: '#/vattenkemi' },
   { title: 'Utrustning', desc: 'Profil för 65L Gen 4.1', icon: 'kettle', href: '#/utrustning' },
-  { title: 'Bryggdag', desc: 'Checklista, timer & logg', icon: 'timer', soon: true },
+  { title: 'Bryggdag', desc: 'Checklista, timer & logg', icon: 'timer', href: '#/bryggdag' },
   { title: 'Mäskschema', desc: 'Upp till 6 steg för RAPT', icon: 'flame', soon: true },
   { title: 'Jäsning', desc: 'SG & temperatur i graf', icon: 'chart', soon: true },
   { title: 'Batcher', desc: 'Historik, anteckningar, betyg', icon: 'archive', soon: true },
@@ -66,9 +67,16 @@ function renderHome() {
 }
 
 function activeHtml() {
+  const b = sessionSummary();
+  const brew = b ? `
+    <h2 class="section-title">Bryggdag pågår</h2>
+    <a class="card active-recipe brewing" href="#/bryggdag">
+      <strong>${esc(b.name)}</strong>
+      <small>${esc(b.step)} · ${b.done}/${b.total} moment${b.running ? ` · ${esc(b.running)}` : ''}</small>
+    </a>` : '';
   const r = getRecipe(getActiveRecipeId());
-  if (!r) return '';
-  return `
+  if (!r) return brew;
+  return brew + `
     <h2 class="section-title">Aktivt recept</h2>
     <a class="card active-recipe" href="#/recept/${r.id}">
       <strong>${esc(r.name)}</strong>
@@ -175,6 +183,7 @@ const ROUTES = {
   '/recept': () => renderRecipeList(view),
   '/import': () => renderImport(view),
   '/verktyg': () => renderTools(view),
+  '/bryggdag': () => renderBrewday(view),
   '/vatten': renderWater,
   '/vattenkemi': () => renderChemistry(view),
   '/utrustning': renderEquipment,

@@ -194,3 +194,29 @@ export function lacticForSparge({ water, spargeL, targetPh }) {
   const meq = alk * (1 - frac(targetPh) / frac(startPh)) * spargeL;
   return Math.max(meq / lacticMeqPerMl(targetPh), 0);
 }
+
+// Hela kemiplanen för en bryggning: salter per kärl, pH och mjölksyra.
+// state = sparat Kemi-läge. Muterar state.salts om automatiskt förslag är på.
+export function planChemistry(state, mashL, spargeL, recalcSalts = true) {
+  const totalL = mashL + spargeL;
+  if (state.auto && recalcSalts) {
+    const dose = suggestSaltDose(state.source, state.target);
+    for (const s of SALTS) state.salts[s.id] = dose[s.id] * totalL;
+  }
+  const mashShare = state.spargeSalts && totalL > 0 ? mashL / totalL : 1;
+  const mashSalts = {}; const spargeSalts = {};
+  for (const s of SALTS) {
+    mashSalts[s.id] = (state.salts[s.id] || 0) * mashShare;
+    spargeSalts[s.id] = (state.salts[s.id] || 0) - mashSalts[s.id];
+  }
+  const mashWater = addProfiles(state.source, ionsFromSalts(mashSalts, mashL));
+  const kettle = addProfiles(state.source, ionsFromSalts(state.salts, totalL));
+  const malts = (state.malts || []).filter((m) => m.kg > 0);
+  const phNoAcid = mashPh({ malts, mashL, water: mashWater });
+  const mashAcid = lacticForMashPh({ malts, mashL, water: mashWater, targetPh: state.mashPhTarget });
+  const phWithAcid = mashPh({ malts, mashL, water: mashWater, lacticMl: mashAcid });
+  const spargeAcid = state.spargeAcid
+    ? lacticForSparge({ water: state.source, spargeL, targetPh: state.spargePhTarget })
+    : 0;
+  return { mashSalts, spargeSalts, mashWater, kettle, phNoAcid, mashAcid, phWithAcid, spargeAcid };
+}
