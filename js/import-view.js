@@ -134,6 +134,7 @@ function card(it, idx, eq) {
         <li><span>Stil</span><b>${style ? `${style.id} ${esc(style.name)}` : '<em>Ingen matchning</em>'}${s.styleName && (!style || style.name !== s.styleName) ? ` <small>(fil: ${esc(s.styleName)})</small>` : ''}</b></li>
         <li><span>Volym</span><b>${fmt(r.batchL)} L · ${fmt(r.boilMin, 0)} min kok</b></li>
         <li><span>Verkningsgrad</span><b>${fmt(r.efficiency)} %</b></li>
+        ${r.fileWater ? `<li><span>Vatten (filen)</span><b>Mäsk ${fmt(r.fileWater.mashL)} L · Lak ${fmt(r.fileWater.spargeL)} L</b></li>` : ''}
         <li><span>Mäsktemp</span><b>${fmt(r.mashTemp)} °C</b></li>
         ${r.waterTarget ? `<li><span>Vattenprofil</span><b>Ca ${fmt(r.waterTarget.ca, 0)} · SO₄ ${fmt(r.waterTarget.so4, 0)} · Cl ${fmt(r.waterTarget.cl, 0)}${r.mashPh ? ` · pH ${fmt(r.mashPh, 2)}` : ''}</b></li>` : ''}
         <li><span>Jäst</span><b>${esc(r.yeast.name || '–')} · ${fmt(r.yeast.attenuation, 0)} %</b></li>

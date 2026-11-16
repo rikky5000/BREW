@@ -190,19 +190,48 @@ export function calcRecipe(r, eq) {
   const srm = mcu > 0 ? 1.4922 * mcu ** 0.6859 : 0;
   const ebc = srm * 1.97;
 
-  // IBU enligt Tinseth. Whirlpool räknas förenklat som 40 % av motsvarande koktid.
+  // IBU enligt Tinseth. Whirlpool/hop stand skalas med temperaturen
+  // (Malowicki: isomeriseringen halveras ungefär per 10 °C under kokpunkten).
+  // Samma metod som Brewfather: densitet före kok och volym i jäskärlet.
   let ibu = 0;
-  const bigness = 1.65 * 0.000125 ** (og - 1);
+  const shrink = Math.min(Math.max(eq.coolingShrinkage ?? 4, 0), 20) / 100;
+  const preBoilL = postBoilL / (1 - shrink) + (eq.boilOffRate ?? 5) * ((+r.boilMin || 0) / 60);
+  const boilGravity = 1 + ((og - 1) * postBoilL) / preBoilL;
+  const ibuL = Math.max(+r.batchL || 0, 0.1);
+  const bigness = 1.65 * 0.000125 ** (boilGravity - 1);
   for (const h of r.hops) {
     if (h.use === 'dryhop') continue;
     const min = Math.max(+h.min || 0, 0);
     let util = bigness * ((1 - Math.exp(-0.04 * min)) / 4.15);
-    if (h.use === 'whirlpool') util *= 0.4;
-    ibu += (util * ((+h.alpha || 0) / 100) * (+h.g || 0) * 1000) / postBoilL;
+    if (h.use === 'whirlpool') util *= whirlpoolFactor(h.temp ?? 80);
+    ibu += (util * ((+h.alpha || 0) / 100) * (+h.g || 0) * 1000) / ibuL;
   }
 
   const buGu = og > 1 ? ibu / ((og - 1) * 1000) : 0;
-  return { og, fg, abv, ibu, ebc, grainKg, totalKg, buGu, postBoilL };
+  return { og, fg, abv, ibu, ebc, grainKg, totalKg, buGu, postBoilL, boilGravity };
+}
+
+export function whirlpoolFactor(tempC) {
+  const t = Math.min(Math.max(+tempC || 0, 0), 100);
+  return Math.min(2.39e11 * Math.exp(-9773 / (t + 273.15)), 1);
+}
+
+// Skalar ingredienserna till en ny volym i jäskärlet. Skalan räknas på volymen
+// efter kok (batch + förlust i kärl) för malt, så att OG, ABV och färg behålls.
+export function scaleRecipe(r, newBatchL, eq) {
+  const loss = eq.kettleLoss || 0;
+  const oldPost = (+r.batchL || 0) + loss;
+  const newPost = (+newBatchL || 0) + loss;
+  if (oldPost <= 0 || newPost <= 0) { r.batchL = newBatchL; return r; }
+  const f = newPost / oldPost;
+  const rnd = (v, d) => Math.round(v * 10 ** d) / 10 ** d;
+  r.malts.forEach((m) => { m.kg = rnd((+m.kg || 0) * f, 2); });
+  // Beskan räknas på volymen i jäskärlet, så humlen skalas med den.
+  const fh = (+r.batchL || 0) > 0 ? (+newBatchL || 0) / (+r.batchL) : f;
+  r.hops.forEach((h) => { h.g = rnd((+h.g || 0) * fh, 1); });
+  (r.miscs || []).forEach((m) => { m.amount = rnd((+m.amount || 0) * f, 2); });
+  r.batchL = newBatchL;
+  return r;
 }
 
 // Verkningsgrad (%) som ger angiven OG med nuvarande volymer och malt.

@@ -113,7 +113,8 @@ export function parseBrewRecipeXml(text) {
     const min = use === 'dryhop'
       ? num(attr(h, 'contactDays') || attr(h, 'days') || attr(h, 'timeDays'))
       : num(attr(h, 'timeMinutes') || attr(h, 'time'));
-    return { name: attr(h, 'name'), g: num(attr(h, 'amountG')) || num(attr(h, 'amountKg')) * 1000, alpha: num(attr(h, 'alpha') || attr(h, 'alphaAcid')), use, min };
+    const temp = num(attr(h, 'temperatureC')) || num(attr(q('whirlpool'), 'temperatureC')) || 80;
+    return { name: attr(h, 'name'), g: num(attr(h, 'amountG')) || num(attr(h, 'amountKg')) * 1000, alpha: num(attr(h, 'alpha') || attr(h, 'alphaAcid')), use, min, ...(use === 'whirlpool' ? { temp } : {}) };
   });
 
   const yeastName = txt('yeast > name') || attr(q('yeast'), 'name');
@@ -171,6 +172,8 @@ export function parseBrewRecipeXml(text) {
     ibu: mid(ibuMin, ibuMax),
     ebc: mid(ebcMin, ebcMax),
     waterTarget, mashPh,
+    mashL: val('water volumes mashWater'),
+    spargeL: val('water volumes spargeWater'),
   })];
 }
 
@@ -242,6 +245,8 @@ function parseBrewfatherJson(r) {
     miscs: (r.miscs || []).map((m) => ({ name: m.name, amount: +m.amount || 0, unit: m.unit || '', use: m.use || '', notes: m.notes || '' })),
     notes: r.notes ?? '',
     og: r.og, fg: r.fg,
+    mashL: +r.data?.mashWaterAmount || null,
+    spargeL: +r.data?.spargeWaterAmount || null,
   });
 }
 
@@ -298,15 +303,19 @@ export function parseBrewfatherPdf({ left, right }) {
   const titleIdx = left.findIndex((l) => /\(V\d+\)/.test(l));
   if (titleIdx < 0 && !find(/brewfather/i)) throw new Error('PDF:en ser inte ut som en Brewfather-utskrift.');
   const name = titleIdx >= 0 ? left[titleIdx].replace(/\s*\(V\d+\).*$/, '').trim() : 'Importerat recept';
-  const styleName = titleIdx >= 0 ? (left[titleIdx + 1] || '').trim() : '';
+  const styleLine = titleIdx >= 0 ? (left[titleIdx + 1] || '').trim() : '';
+  const styleName = /^(Upphovsmakare|Author|Brewer|Typ|Type)\b|:/i.test(styleLine) ? '' : styleLine;
 
   const malts = []; const hops = []; const miscs = []; let yeast = null;
   let section = '';
+  let standTemp = 80;
   for (const line of left) {
     const l = line.trim();
     if (/^(Extraktgivare|Fermentables)\b/i.test(l)) { section = 'malt'; continue; }
     if (/^(Humle|Hops)\b/i.test(l)) { section = 'boil'; continue; }
     if (/^(Hop stand|Whirlpool)\b/i.test(l)) { section = 'whirlpool'; continue; }
+    const st = l.match(/hop stand (?:vid|at)\s*([\d.,]+)\s*°/i);
+    if (st) { standTemp = num(st[1]); continue; }
     if (/^(Torrhumle|Torrhumling|Dry Hop)/i.test(l)) { section = 'dryhop'; continue; }
     if (/^(Övrigt|Other|Miscs?)\b/i.test(l)) { section = 'misc'; continue; }
     if (/^(Jäst|Yeast)s?$/i.test(l)) { section = 'yeast'; continue; }
@@ -318,25 +327,31 @@ export function parseBrewfatherPdf({ left, right }) {
       const ebc = /EBC/i.test(m[5]) ? num(m[4]) : num(m[4]) * 1.97;
       malts.push(malt(m[3], kg, ebc, null, null));
     } else if (['boil', 'whirlpool', 'dryhop'].includes(section)
-      && (m = l.match(/^([\d.,]+)\s*(min|dagar|dag|days?)\s*-\s*([\d.,]+)\s*(g|kg)\s*-\s*(.+?)\s*-\s*([\d.,]+)\s*%/i))) {
+      && (m = l.match(/^([\d.,]+)\s*(min|dagar|dag|days?)(?:\s+([\d.,]+)\s*°\s*[CF])?\s*-\s*([\d.,]+)\s*(g|kg)\s*-\s*(.+?)\s*-\s*([\d.,]+)\s*%/i))) {
       const days = /dag|day/i.test(m[2]);
+      const use = days ? 'dryhop' : section;
       hops.push({
-        name: m[5].trim(),
-        g: num(m[3]) * (m[4].toLowerCase() === 'kg' ? 1000 : 1),
-        alpha: num(m[6]),
-        use: days ? 'dryhop' : section,
+        name: m[6].trim(),
+        g: num(m[4]) * (m[5].toLowerCase() === 'kg' ? 1000 : 1),
+        alpha: num(m[7]),
+        use,
         min: num(m[1]),
+        ...(use === 'whirlpool' ? { temp: m[3] ? num(m[3]) : standTemp } : {}),
       });
     } else if (section === 'misc' && (m = l.match(/^(.+?)\s*-\s*([\d.,]+)\s*(ml|l|g|kg|st|pkt|items?|tsp|tbsp)\s*-\s*(.+)$/i))) {
       miscs.push({ name: m[4].trim(), amount: round(num(m[2]), 2), unit: m[3], use: m[1].trim(), notes: '' });
     } else if (section === 'misc' && miscs.length && !/^\d/.test(l)) {
       miscs[miscs.length - 1].name += ` ${l}`;
     } else if (section === 'yeast' && !yeast && (m = l.match(/^[\d.,]+\s*\S+\s*-\s*(.+)$/))) {
-      yeast = yeastOf(m[1], null, m[1].trim());
+      const yname = m[1].replace(/\bnull\b/gi, '').replace(/\s+/g, ' ').trim();
+      yeast = yeastOf(yname, null, yname);
     }
   }
 
   const step = right.map((l) => l.match(/^([\d.,]+)\s*°C\s*-\s*\d+\s*min/)).find(Boolean);
+  const wp = find(/\bCa\s+([\d.,]+)\s+Mg\s+([\d.,]+)\s+Na\s+([\d.,]+)\s+Cl\s+([\d.,]+)\s+SO4?\s+([\d.,]+)/);
+  const waterTarget = wp ? { ca: num(wp[1]), mg: num(wp[2]), na: num(wp[3]), cl: num(wp[4]), so4: num(wp[5]) } : null;
+  const mashPh = val(/(?:Mäsk-pH|Mash pH)\s*:\s*([\d.,]+)/i);
   const mashEff = val(/(?:Mäskutbyte|Mash Efficiency)\s*:?\s*([\d.,]+)\s*%/i);
   const totalEff = val(/(?:Totalt utbyte|Brewhouse Efficiency)\s*:?\s*([\d.,]+)\s*%/i);
 
@@ -355,6 +370,9 @@ export function parseBrewfatherPdf({ left, right }) {
     fg: val(/Final Gravity\s*:?\s*(1[.,]\d{3})/i),
     ibu: val(/^IBU\s*:?\s*([\d.,]+)/i),
     ebc: val(/(?:Färg|Color)\s*:?\s*([\d.,]+)\s*EBC/i),
+    waterTarget, mashPh,
+    mashL: val(/(?:Mäskvatten|Mash Water)\s*:?\s*([\d.,]+)\s*L/i),
+    spargeL: val(/(?:Lakvatten|Sparge Water)\s*:?\s*([\d.,]+)\s*L/i),
   })];
 }
 
@@ -382,11 +400,17 @@ function draft(d) {
     notes: d.notes || '',
     ...(d.waterTarget ? { waterTarget: d.waterTarget } : {}),
     ...(d.mashPh ? { mashPh: d.mashPh } : {}),
+    ...(d.mashL ? { fileWater: { mashL: d.mashL, spargeL: d.spargeL || 0, batchL: d.batchL || null } } : {}),
+    ...(d.mashL && grainKg(d.malts) > 0 ? { mashRatio: Math.round((d.mashL / grainKg(d.malts)) * 100) / 100 } : {}),
     source: {
       format: d.format, styleName: d.styleName || '',
       og: d.og || null, fg: d.fg || null, ibu: d.ibu ?? null, ebc: d.ebc ?? null,
     },
   };
+}
+
+function grainKg(malts) {
+  return (malts || []).filter((m) => m.kind !== 'sugar').reduce((s, m) => s + (+m.kg || 0), 0);
 }
 
 function malt(name, kg, ebc, yieldPct, kindHint) {

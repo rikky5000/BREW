@@ -1,12 +1,12 @@
 import { icons } from './icons.js';
 import { load, save } from './storage.js';
 import { getEquipment } from './equipment.js';
-import { fmt, WATER_KEY, waterDefaults } from './water.js';
+import { fmt, calcWater, WATER_KEY, waterDefaults } from './water.js';
 import { esc, toast } from './ui.js';
 import { TARGET_PROFILES } from './chemistry.js';
 import {
   MALTS, HOPS, HOP_USES, YEASTS, STYLES,
-  getRecipes, getRecipe, saveRecipe, deleteRecipe, newRecipe, calcRecipe, ebcToColor,
+  getRecipes, getRecipe, saveRecipe, deleteRecipe, newRecipe, calcRecipe, ebcToColor, scaleRecipe,
 } from './recipes.js';
 
 const ACTIVE_KEY = 'active-recipe';
@@ -78,9 +78,19 @@ export function renderRecipeEditor(view, id) {
         ${STYLES.map((s) => `<option value="${s.id}"${s.id === recipe.styleId ? ' selected' : ''}>${s.id} ${esc(s.name)}</option>`).join('')}
       </select></div></div>
       ${num('batchL', 'Volym i jäskärl', recipe.batchL, 'L', 1)}
+      <label class="toggle-row" for="r-scale">
+        <span>Skala ingredienser med volymen<small>Behåller OG, IBU, ABV och färg</small></span>
+        <input id="r-scale" type="checkbox" class="switch"${recipe.scaleWithVolume !== false ? ' checked' : ''}>
+      </label>
       ${num('boilMin', 'Koktid', recipe.boilMin, 'min', 5)}
       ${num('efficiency', 'Verkningsgrad', recipe.efficiency, '%', 1)}
       ${num('mashTemp', 'Mäsktemperatur', recipe.mashTemp, '°C', 0.5)}
+    </div>
+
+    <h2 class="section-title">Vatten</h2>
+    <div class="card" id="r-water">
+      ${num('mashRatio', 'Mäsktjocklek', recipe.mashRatio ?? eq.mashRatio, 'L/kg', 0.05)}
+      <div id="r-water-out"></div>
     </div>
 
     <h2 class="section-title">Malt</h2>
@@ -123,6 +133,7 @@ export function renderRecipeEditor(view, id) {
 
   // ---------- Statistik ----------
   function renderStats() {
+    renderWater();
     const c = calcRecipe(recipe, eq);
     const style = STYLES.find((s) => s.id === recipe.styleId);
     const stat = (label, value, text, range, digits) => {
@@ -150,12 +161,69 @@ export function renderRecipeEditor(view, id) {
   }
 
   // ---------- Grund ----------
+  const scaling = () => recipe.scaleWithVolume !== false;
   view.querySelector('#r-base').addEventListener('input', (e) => {
     const k = e.target.dataset.k;
     if (!k) return;
+    // Vid skalning hanteras volymen när fältet lämnas (change), inte per tangent.
+    if (k === 'batchL' && scaling()) return;
     recipe[k] = e.target.type === 'number' ? numVal(e.target.value) : e.target.value;
     if (k === 'name') view.querySelector('#r-title').textContent = recipe.name;
     persist(); renderStats();
+  });
+  view.querySelector('#f-batchL').addEventListener('change', (e) => {
+    if (!scaling()) return;
+    const next = numVal(e.target.value);
+    if (next <= 0 || next === +recipe.batchL) return;
+    scaleRecipe(recipe, next, eq);
+    persist(); renderMalts(); renderHops(); renderMiscs(); renderStats();
+    toast(`Skalat till ${fmt(next, 1)} L`);
+  });
+  view.querySelector('#r-scale').addEventListener('change', (e) => {
+    recipe.scaleWithVolume = e.target.checked;
+    persist();
+  });
+
+  // ---------- Vatten ----------
+  const waterOut = view.querySelector('#r-water-out');
+  function renderWater() {
+    const c = calcRecipe(recipe, eq);
+    const w = calcWater({
+      grainKg: c.grainKg, batchL: recipe.batchL, boilMin: recipe.boilMin,
+      mashRatio: recipe.mashRatio ?? eq.mashRatio, mashTemp: recipe.mashTemp, grainTemp: 18,
+    }, eq);
+    const fw = recipe.fileWater;
+    const row = (label, app, file) => `<tr><td>${label}</td><td>${fmt(app)} L</td>${fw ? `<td>${file == null ? '–' : `${fmt(file)} L`}</td>` : ''}</tr>`;
+    waterOut.innerHTML = `
+      <table class="ions cmp">
+        <thead><tr><th></th><th>Appen</th>${fw ? `<th>Filen${fw.batchL && fw.batchL !== +recipe.batchL ? ` (${fmt(fw.batchL, 0)} L)` : ''}</th>` : ''}</tr></thead>
+        <tbody>
+          ${row('Mäskvatten', w.mash, fw?.mashL)}
+          ${row('Lakvatten', w.sparge, fw?.spargeL)}
+          ${row('Totalt vatten', w.total, fw ? fw.mashL + fw.spargeL : null)}
+          ${row('Före kok', w.preBoil, null)}
+        </tbody>
+      </table>
+      <p class="note">Insläppstemperatur ${fmt(w.strikeTemp)} °C. Appen räknar med din utrustningsprofil
+        (avkok ${fmt(eq.boilOffRate)} L/h, förlust ${fmt(eq.kettleLoss)} L, absorption ${fmt(eq.grainAbsorption, 2)} L/kg).
+        ${fw ? 'Filens värden gäller originalreceptet och dess utrustning.' : ''}</p>
+      ${w.warnings.map((x) => `<div class="alert warn">${esc(x)}</div>`).join('')}
+      ${fw && c.grainKg > 0 ? '<div class="btn-row"><button class="btn" type="button" id="r-match-mash">Matcha filens mäskvatten</button></div>' : ''}
+    `;
+  }
+  view.querySelector('#r-water').addEventListener('input', (e) => {
+    if (e.target.dataset.k !== 'mashRatio') return;
+    recipe.mashRatio = numVal(e.target.value);
+    persist(); renderWater();
+  });
+  waterOut.addEventListener('click', (e) => {
+    if (e.target.id !== 'r-match-mash') return;
+    const c = calcRecipe(recipe, eq);
+    const orig = recipe.fileWater.mashL * ((+recipe.batchL + eq.kettleLoss) / ((recipe.fileWater.batchL ?? +recipe.batchL) + eq.kettleLoss));
+    recipe.mashRatio = Math.round((orig / c.grainKg) * 100) / 100;
+    view.querySelector('#f-mashRatio').value = recipe.mashRatio;
+    persist(); renderWater();
+    toast(`Mäsktjocklek ${fmt(recipe.mashRatio, 2)} L/kg`);
   });
 
   // ---------- Malt ----------
@@ -221,6 +289,7 @@ export function renderRecipeEditor(view, id) {
         <button type="button" class="icon-btn" data-remove aria-label="Ta bort">×</button>
         <select data-k="use" aria-label="Användning">${HOP_USES.map((u) => `<option value="${u.id}"${u.id === h.use ? ' selected' : ''}>${u.name}</option>`).join('')}</select>
         <label class="mini"><input data-k="min" type="number" inputmode="numeric" step="1" min="0" value="${h.min}"><span>${h.use === 'dryhop' ? 'dag' : 'min'}</span></label>
+        ${h.use === 'whirlpool' ? `<label class="mini"><input data-k="temp" type="number" inputmode="numeric" step="1" min="0" max="100" value="${h.temp ?? 80}"><span>°C</span></label>` : ''}
       </div>`).join('') || '<p class="note">Ingen humle.</p>';
   }
   hopsEl.addEventListener('input', (e) => {
@@ -233,7 +302,7 @@ export function renderRecipeEditor(view, id) {
       if (db) { h.alpha = db.alpha; row.querySelector('[data-k=alpha]').value = db.alpha; }
     } else if (k === 'use') {
       h.use = e.target.value;
-      if (h.use === 'whirlpool' && !h.min) h.min = 20;
+      if (h.use === 'whirlpool') { if (!h.min) h.min = 20; h.temp ??= 80; }
       if (h.use === 'dryhop') h.min = h.min > 14 ? 3 : h.min;
       renderHops();
     } else {
@@ -327,6 +396,7 @@ function applyRecipe(recipe, eq) {
     batchL: recipe.batchL,
     boilMin: recipe.boilMin,
     mashTemp: recipe.mashTemp,
+    ...(recipe.mashRatio ? { mashRatio: recipe.mashRatio } : {}),
   });
 
   const style = STYLES.find((s) => s.id === recipe.styleId);
